@@ -65,7 +65,7 @@ def process_gpx(uploaded_file):
 st.set_page_config(page_title="mkUltra.run | GPX Analyser", layout="wide")
 
 st.title("🏃‍♂️ mkUltra.run GPX Vert Analyser")
-st.markdown("Upload a GPX file to see your distance breakdown by gradient. Optimized for Australian trail and ultra-running.")
+st.markdown("Upload a GPX file to see your distance breakdown by gradient to see whether your training matches your race elevation profile.")
 
 uploaded_file = st.file_uploader("Choose a GPX file", type="gpx")
 
