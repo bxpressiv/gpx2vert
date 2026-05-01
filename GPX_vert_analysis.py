@@ -74,8 +74,8 @@ if uploaded_file is not None:
             ax.text(bar.get_width() + (max_val * 0.02), bar.get_y() + bar.get_height()/2, f"{dist:.2f}km ({perc:.1f}%)", va='center', fontweight='bold')
 
     # --- LOGO IN BOTTOM RIGHT OF GRAPH ---
-    if os.path.exists("logo.png"):
-        logo_img = plt.imread("logo.png")
+    if os.path.exists("Logo.png"):
+        logo_img = plt.imread("Logo.png")
         # zoom controls the size of the logo inside the graph
         imagebox = OffsetImage(logo_img, zoom=0.15, alpha=0.8) 
         # (1, 0) is the bottom right corner of the axes
