@@ -101,6 +101,7 @@ if uploaded_file is not None:
     plt.tight_layout()
 
     # Display in Streamlit
+    ax.set_xlim(0, max_val * 1.3)
     st.pyplot(fig)
 
     # Download Option
