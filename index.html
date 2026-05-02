@@ -5,23 +5,21 @@
     <title>mkUltra.run gpx2vert analyser</title>
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
-        #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; }
-        input { margin: 10px 0; }
-        h1 { color: #333; }
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; color: #333; }
+        #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; min-height: 50px; }
+        input { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
     </style>
 </head>
 <body>
     <h1>mkUltra.run gpx2vert analyser</h1>
     
-    <p>Upload a GPX file to begin:</p>
+    <p>Upload a GPX file to begin your elevation analysis:</p>
     <input type="file" id="file-upload" accept=".gpx">
 
     <div id="output">Initialising Python engine and loading libraries...</div>
 
-    <py-config>
-        packages = ["pandas", "gpxpy"]
-    </py-config>
+    <py-config>packages = ["pandas", "gpxpy"]</py-config>
 
     <script type="py">
         from pyscript import display, when
@@ -44,7 +42,6 @@
             content = array_buf.to_bytes()
             
             try:
-                # Convert bytes to string for gpxpy
                 gpx_data = content.decode("utf-8")
                 gpx = gpxpy.parse(gpx_data)
                 
