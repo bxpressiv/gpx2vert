@@ -6,11 +6,15 @@
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: auto; color: #333; }
-        #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; min-height: 20px; }
+        #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; min-height: 20px; line-height: 1.5; }
         #plot-area { margin-top: 20px; width: 100%; display: flex; justify-content: center; }
         input { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box; }
         h1 { border-bottom: 2px solid #333; padding-bottom: 10px; text-align: center; }
         py-config { display: none !important; }
+        
+        /* Loading Pulse Animation */
+        .loading { font-style: italic; color: #666; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -18,7 +22,9 @@
     <p style="text-align: center; color: gray;">Upload a GPX file to see your distance breakdown by gradient.</p>
     <input type="file" id="file-upload" accept=".gpx">
     
-    <div id="output">Initialising mkUltra engine...</div>
+    <div id="output">
+        <span class="loading">Initialising mkUltra engine... To keep this tool free, it takes about 15 seconds to load the analysis libraries on your first visit. It will be faster next time.</span>
+    </div>
     <div id="plot-area"></div>
 
     <py-config>
@@ -40,14 +46,14 @@
 
         SMOOTHING_WINDOW = 10
         
-        display("✅ mkUltra engine ready. Select a GPX file.", target="output")
+        display("✅ mkUltra engine ready. Please select your GPX file.", target="output", append=False)
 
         @when("change", "#file-upload")
         async def process_file(event):
             file_list = event.target.files
             if not file_list: return
             
-            display("⏳ Analysing gradients...", target="output", append=False)
+            display("⏳ Analysing gradients and preparing your chart...", target="output", append=False)
             file = file_list.item(0)
             race_name = file.name.replace(".gpx", "")
             
@@ -103,8 +109,6 @@
                     if dist > 0:
                         ax.text(bar.get_width() + (max_val * 0.02), bar.get_y() + bar.get_height()/2, f"{dist:.2f}km ({perc:.1f}%)", va='center', fontweight='bold')
 
-                # --- LOGO LOGIC ---
-                # Check for logo in the virtual root
                 logo_path = "Logo.png"
                 if os.path.exists(logo_path):
                     logo_img = plt.imread(logo_path)
