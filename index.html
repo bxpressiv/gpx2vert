@@ -24,7 +24,7 @@
     <py-config>
         packages = ["pandas", "gpxpy", "numpy", "matplotlib"]
         [[fetch]]
-        files = ["Logo.png"]
+        files = ["./Logo.png"]
     </py-config>
 
     <script type="py">
@@ -104,8 +104,10 @@
                         ax.text(bar.get_width() + (max_val * 0.02), bar.get_y() + bar.get_height()/2, f"{dist:.2f}km ({perc:.1f}%)", va='center', fontweight='bold')
 
                 # --- LOGO LOGIC ---
-                if os.path.exists("Logo.png"):
-                    logo_img = plt.imread("Logo.png")
+                # Check for logo in the virtual root
+                logo_path = "Logo.png"
+                if os.path.exists(logo_path):
+                    logo_img = plt.imread(logo_path)
                     imagebox = OffsetImage(logo_img, zoom=0.15, alpha=0.8)
                     ab = AnnotationBbox(imagebox, (0.98, 0.05), xycoords='axes fraction', frameon=False, box_alignment=(1, 0))
                     ax.add_artist(ab)
