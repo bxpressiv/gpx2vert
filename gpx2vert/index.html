@@ -30,7 +30,8 @@
     <py-config>
         packages = ["pandas", "gpxpy", "numpy", "matplotlib"]
         [[fetch]]
-        files = ["./Logo.png"]
+        # Updated to fetch from the local folder path
+        files = ["Logo.png", "GPX_vert_analysis.py"]
     </py-config>
 
     <script type="py">
@@ -44,6 +45,7 @@
         import re
         import os
 
+        # Core calculation logic
         SMOOTHING_WINDOW = 10
         
         display("✅ mkUltra engine ready. Please select your GPX file.", target="output", append=False)
