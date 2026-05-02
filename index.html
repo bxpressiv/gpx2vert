@@ -17,9 +17,11 @@
     <p>Upload a GPX file to begin your elevation analysis:</p>
     <input type="file" id="file-upload" accept=".gpx">
 
-    <div id="output">Initialising Python engine and loading libraries...</div>
+    <div id="output">Initialising mkUltra engine...</div>
 
-    <py-config>packages = ["pandas", "gpxpy"]</py-config>
+    <py-config>
+        packages = ["pandas", "gpxpy"]
+    </py-config>
 
     <script type="py">
         from pyscript import display, when
@@ -27,15 +29,15 @@
         import gpxpy
         import io
 
-        display("✅ Ready. Please select a GPX file.", target="output")
+        display("✅ mkUltra engine ready. Select a GPX file.", target="output")
 
         @when("change", "#file-upload")
         async def process_file(event):
             file_list = event.target.files
-            if len(file_list) == 0:
+            if not file_list:
                 return
 
-            display("⏳ Reading file...", target="output")
+            display("⏳ Processing GPX data...", target="output")
             
             file = file_list.item(0)
             array_buf = await file.arrayBuffer()
@@ -45,11 +47,8 @@
                 gpx_data = content.decode("utf-8")
                 gpx = gpxpy.parse(gpx_data)
                 
-                track_name = "Unknown Track"
-                if gpx.tracks:
-                    track_name = gpx.tracks[0].name or "Unnamed Track"
-                
-                display(f"📊 Successfully parsed: {track_name}", target="output")
+                track_name = gpx.tracks[0].name if gpx.tracks else "Unnamed Track"
+                display(f"📊 Analysis complete for: {track_name}", target="output")
             except Exception as e:
                 display(f"❌ Error: {str(e)}", target="output")
     </script>
