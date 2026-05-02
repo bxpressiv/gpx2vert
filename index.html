@@ -6,10 +6,10 @@
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; color: #333; }
-        #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; min-height: 50px; }
+        #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; min-height: 50px; white-space: pre-line; }
         input { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box; }
         h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
-        py-config { display: none; }
+        py-config { display: none !important; }
     </style>
 </head>
 <body>
@@ -24,9 +24,8 @@
 
     <script type="py">
         from pyscript import display, when
-        import pandas as pd
         import gpxpy
-        import io
+        import pandas as pd
 
         display("✅ mkUltra engine ready. Select a GPX file.", target="output")
 
@@ -35,15 +34,40 @@
             file_list = event.target.files
             if not file_list:
                 return
+            
             display("⏳ Processing GPX data...", target="output")
             file = file_list.item(0)
             array_buf = await file.arrayBuffer()
             content = array_buf.to_bytes()
+            
             try:
                 gpx_data = content.decode("utf-8")
                 gpx = gpxpy.parse(gpx_data)
+                
                 track_name = gpx.tracks[0].name if gpx.tracks else "Unnamed Track"
-                display(f"📊 Analysis complete for: {track_name}", target="output")
+                
+                # Extract elevation points
+                data = []
+                for track in gpx.tracks:
+                    for segment in track.segments:
+                        for point in segment.points:
+                            data.append({'ele': point.elevation})
+                
+                df = pd.DataFrame(data)
+                
+                # Calculate raw changes
+                df['diff'] = df['ele'].diff()
+                total_gain = df[df['diff'] > 0]['diff'].sum()
+                total_loss = df[df['diff'] < 0]['diff'].sum()
+
+                results = (
+                    f"📊 **Analysis for:** {track_name}\n"
+                    f"📈 **Total Ascent:** {total_gain:.0f}m\n"
+                    f"📉 **Total Descent:** {abs(total_loss):.0f}m"
+                )
+                
+                display(results, target="output")
+                
             except Exception as e:
                 display(f"❌ Error: {str(e)}", target="output")
     </script>
