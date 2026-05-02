@@ -23,6 +23,8 @@
 
     <py-config>
         packages = ["pandas", "gpxpy", "numpy", "matplotlib"]
+        [[fetch]]
+        files = ["Logo.png"]
     </py-config>
 
     <script type="py">
@@ -32,9 +34,10 @@
         import numpy as np
         import matplotlib.pyplot as plt
         from matplotlib.colors import LinearSegmentedColormap
+        from matplotlib.offsetbox import OffsetImage, AnnotationBbox
         import re
+        import os
 
-        # User Configuration
         SMOOTHING_WINDOW = 10
         
         display("✅ mkUltra engine ready. Select a GPX file.", target="output")
@@ -42,23 +45,18 @@
         @when("change", "#file-upload")
         async def process_file(event):
             file_list = event.target.files
-            if not file_list:
-                return
+            if not file_list: return
             
-            output_box = display("⏳ Analysing gradients...", target="output", append=False)
-            plot_area = display("", target="plot-area", append=False)
-            
+            display("⏳ Analysing gradients...", target="output", append=False)
             file = file_list.item(0)
             race_name = file.name.replace(".gpx", "")
             
             try:
-                # Read file
                 array_buf = await file.arrayBuffer()
                 content = array_buf.to_bytes()
                 gpx_data = content.decode("utf-8")
                 gpx = gpxpy.parse(gpx_data)
                 
-                # Extract Data
                 cumulative_dist = [0.0]
                 elevations = []
                 points = []
@@ -72,7 +70,6 @@
                     dist = points[i-1].distance_2d(point)
                     cumulative_dist.append(cumulative_dist[-1] + dist)
 
-                # Process Dataframe
                 df = pd.DataFrame({'cum_dist': cumulative_dist, 'ele': elevations})
                 df['ele_smooth'] = df['ele'].rolling(window=SMOOTHING_WINDOW, center=True, min_periods=1).mean()
                 df['dist_diff'] = df['cum_dist'].diff()
@@ -80,7 +77,6 @@
                 df['gradient'] = np.where(df['dist_diff'] > 1.0, (df['ele_diff'] / df['dist_diff']) * 100, 0)
                 df['gradient'] = df['gradient'].replace([np.inf, -np.inf], 0).fillna(0)
 
-                # Binning
                 bins = [-np.inf, -22.5, -17.5, -12.5, -7.5, -2.5, 2.5, 7.5, 12.5, 17.5, 22.5, np.inf]
                 labels = ["-27.5 to -22.5 %", "-22.5 to -17.5 %", "-17.5 to -12.5 %", "-12.5 to -7.5 %", "-7.5 to -2.5 %", "-2.5 to 2.5 %", "2.5 to 7.5 %", "7.5 to 12.5 %", "12.5 to 17.5 %", "17.5 to 22.5 %", "22.5 to 27.5 %"]
                 
@@ -94,20 +90,25 @@
                 summary['sort'] = summary['Bin'].apply(lambda x: float(re.findall(r"[-+]?\d*\.?\d+", str(x))[0]))
                 summary = summary.sort_values('sort', ascending=True).reset_index(drop=True)
 
-                # Generate Plot
                 plt.close('all')
                 fig, ax = plt.subplots(figsize=(10, 6))
                 custom_colors = ["#803131", "#d63131", "#e77d31", "#efe331", "#d3d388", "#31d431", "#7fd1af", "#4ee6e6", "#3197e9", "#3b36db", "#682d94"]
                 cmap = LinearSegmentedColormap.from_list("vv", custom_colors[::-1], N=len(summary))
                 bars = ax.barh(summary['Bin'], summary['Distance_km'], color=[cmap(i) for i in range(len(summary))])
 
-                # Formatting
                 max_val = summary['Distance_km'].max()
                 ax.set_xlim(0, max_val * 1.3)
                 for i, bar in enumerate(bars):
                     dist, perc = summary.loc[i, 'Distance_km'], summary.loc[i, 'Perc']
                     if dist > 0:
                         ax.text(bar.get_width() + (max_val * 0.02), bar.get_y() + bar.get_height()/2, f"{dist:.2f}km ({perc:.1f}%)", va='center', fontweight='bold')
+
+                # --- LOGO LOGIC ---
+                if os.path.exists("Logo.png"):
+                    logo_img = plt.imread("Logo.png")
+                    imagebox = OffsetImage(logo_img, zoom=0.15, alpha=0.8)
+                    ab = AnnotationBbox(imagebox, (0.98, 0.05), xycoords='axes fraction', frameon=False, box_alignment=(1, 0))
+                    ax.add_artist(ab)
 
                 plt.title(f"{race_name}\nTotal Distance: {total_dist:.2f} km", fontsize=14, fontweight='bold')
                 plt.xlabel("Distance (km)")
