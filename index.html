@@ -7,11 +7,18 @@
 </head>
 <body>
     <h1>gpx2vert Proof of Concept</h1>
-    <div id="output">Loading Python...</div>
+    <div id="output">Loading Python and libraries...</div>
+
+    <py-config>
+        packages = ["pandas", "gpxpy"]
+    </py-config>
 
     <script type="py">
         from pyscript import display
-        display("Success! Python is running in your browser.", target="output")
+        import pandas as pd
+        import gpxpy
+        
+        display("Success! Python, Pandas, and GPXpy are ready.", target="output")
     </script>
 </body>
 </html>
