@@ -6,7 +6,8 @@
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
-        #output { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+        #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; }
+        input { margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -15,7 +16,7 @@
     <p>Upload a GPX file to test the parser:</p>
     <input type="file" id="file-upload" accept=".gpx">
 
-    <div id="output">Initialising Python...</div>
+    <div id="output">Initialising Python engine and loading libraries...</div>
 
     <py-config>
         packages = ["pandas", "gpxpy"]
@@ -27,7 +28,7 @@
         import gpxpy
         import io
 
-        display("Ready. Please select a file.", target="output")
+        display("✅ Ready. Please select a GPX file.", target="output")
 
         @when("change", "#file-upload")
         async def process_file(event):
@@ -35,19 +36,24 @@
             if len(file_list) == 0:
                 return
 
-            display("Reading file...", target="output")
+            display("⏳ Reading file...", target="output")
             
-            # Read the file content
             file = file_list.item(0)
             array_buf = await file.arrayBuffer()
             content = array_buf.to_bytes()
             
             try:
-                gpx = gpxpy.parse(content)
-                track_name = gpx.tracks[0].name if gpx.tracks else "Unknown Track"
-                display(f"Successfully parsed: {track_name}", target="output")
+                # Convert bytes to string for gpxpy
+                gpx_data = content.decode("utf-8")
+                gpx = gpxpy.parse(gpx_data)
+                
+                track_name = "Unknown Track"
+                if gpx.tracks:
+                    track_name = gpx.tracks[0].name or "Unnamed Track"
+                
+                display(f"📊 Successfully parsed: {track_name}", target="output")
             except Exception as e:
-                display(f"Error parsing GPX: {str(e)}", target="output")
+                display(f"❌ Error: {str(e)}", target="output")
     </script>
 </body>
 </html>
