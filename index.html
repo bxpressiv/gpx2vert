@@ -4,21 +4,50 @@
     <meta charset="utf-8">
     <title>gpx2vert | Run Coaching Canberra</title>
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
+        #output { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+    </style>
 </head>
 <body>
-    <h1>gpx2vert Proof of Concept</h1>
-    <div id="output">Loading Python and libraries...</div>
+    <h1>gpx2vert Analyzer</h1>
+    
+    <p>Upload a GPX file to test the parser:</p>
+    <input type="file" id="file-upload" accept=".gpx">
+
+    <div id="output">Initialising Python...</div>
 
     <py-config>
         packages = ["pandas", "gpxpy"]
     </py-config>
 
     <script type="py">
-        from pyscript import display
+        from pyscript import display, when
         import pandas as pd
         import gpxpy
-        
-        display("Success! Python, Pandas, and GPXpy are ready.", target="output")
+        import io
+
+        display("Ready. Please select a file.", target="output")
+
+        @when("change", "#file-upload")
+        async def process_file(event):
+            file_list = event.target.files
+            if len(file_list) == 0:
+                return
+
+            display("Reading file...", target="output")
+            
+            # Read the file content
+            file = file_list.item(0)
+            array_buf = await file.arrayBuffer()
+            content = array_buf.to_bytes()
+            
+            try:
+                gpx = gpxpy.parse(content)
+                track_name = gpx.tracks[0].name if gpx.tracks else "Unknown Track"
+                display(f"Successfully parsed: {track_name}", target="output")
+            except Exception as e:
+                display(f"Error parsing GPX: {str(e)}", target="output")
     </script>
 </body>
 </html>
