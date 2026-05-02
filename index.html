@@ -6,8 +6,8 @@
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: auto; color: #333; }
-        #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; }
-        #plot-area { margin-top: 20px; width: 100%; }
+        #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; min-height: 20px; }
+        #plot-area { margin-top: 20px; width: 100%; display: flex; justify-content: center; }
         input { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box; }
         h1 { border-bottom: 2px solid #333; padding-bottom: 10px; text-align: center; }
         py-config { display: none !important; }
@@ -32,27 +32,33 @@
         import numpy as np
         import matplotlib.pyplot as plt
         from matplotlib.colors import LinearSegmentedColormap
-        import io
         import re
 
+        # User Configuration
         SMOOTHING_WINDOW = 10
+        
         display("✅ mkUltra engine ready. Select a GPX file.", target="output")
 
         @when("change", "#file-upload")
         async def process_file(event):
             file_list = event.target.files
-            if not file_list: return
+            if not file_list:
+                return
             
-            display("⏳ Analysing gradients...", target="output")
+            output_box = display("⏳ Analysing gradients...", target="output", append=False)
+            plot_area = display("", target="plot-area", append=False)
+            
             file = file_list.item(0)
             race_name = file.name.replace(".gpx", "")
-            array_buf = await file.arrayBuffer()
-            content = array_buf.to_bytes()
             
             try:
+                # Read file
+                array_buf = await file.arrayBuffer()
+                content = array_buf.to_bytes()
                 gpx_data = content.decode("utf-8")
                 gpx = gpxpy.parse(gpx_data)
                 
+                # Extract Data
                 cumulative_dist = [0.0]
                 elevations = []
                 points = []
@@ -66,6 +72,7 @@
                     dist = points[i-1].distance_2d(point)
                     cumulative_dist.append(cumulative_dist[-1] + dist)
 
+                # Process Dataframe
                 df = pd.DataFrame({'cum_dist': cumulative_dist, 'ele': elevations})
                 df['ele_smooth'] = df['ele'].rolling(window=SMOOTHING_WINDOW, center=True, min_periods=1).mean()
                 df['dist_diff'] = df['cum_dist'].diff()
@@ -73,6 +80,7 @@
                 df['gradient'] = np.where(df['dist_diff'] > 1.0, (df['ele_diff'] / df['dist_diff']) * 100, 0)
                 df['gradient'] = df['gradient'].replace([np.inf, -np.inf], 0).fillna(0)
 
+                # Binning
                 bins = [-np.inf, -22.5, -17.5, -12.5, -7.5, -2.5, 2.5, 7.5, 12.5, 17.5, 22.5, np.inf]
                 labels = ["-27.5 to -22.5 %", "-22.5 to -17.5 %", "-17.5 to -12.5 %", "-12.5 to -7.5 %", "-7.5 to -2.5 %", "-2.5 to 2.5 %", "2.5 to 7.5 %", "7.5 to 12.5 %", "12.5 to 17.5 %", "17.5 to 22.5 %", "22.5 to 27.5 %"]
                 
@@ -86,13 +94,14 @@
                 summary['sort'] = summary['Bin'].apply(lambda x: float(re.findall(r"[-+]?\d*\.?\d+", str(x))[0]))
                 summary = summary.sort_values('sort', ascending=True).reset_index(drop=True)
 
-                # Plotting
+                # Generate Plot
                 plt.close('all')
                 fig, ax = plt.subplots(figsize=(10, 6))
                 custom_colors = ["#803131", "#d63131", "#e77d31", "#efe331", "#d3d388", "#31d431", "#7fd1af", "#4ee6e6", "#3197e9", "#3b36db", "#682d94"]
                 cmap = LinearSegmentedColormap.from_list("vv", custom_colors[::-1], N=len(summary))
                 bars = ax.barh(summary['Bin'], summary['Distance_km'], color=[cmap(i) for i in range(len(summary))])
 
+                # Formatting
                 max_val = summary['Distance_km'].max()
                 ax.set_xlim(0, max_val * 1.3)
                 for i, bar in enumerate(bars):
@@ -104,11 +113,11 @@
                 plt.xlabel("Distance (km)")
                 plt.tight_layout()
                 
-                display(fig, target="plot-area")
-                display(f"✅ Analysis complete for {race_name}", target="output")
+                display(fig, target="plot-area", append=False)
+                display(f"✅ Analysis complete for {race_name}", target="output", append=False)
                 
             except Exception as e:
-                display(f"❌ Error: {str(e)}", target="output")
+                display(f"❌ Error: {str(e)}", target="output", append=False)
     </script>
 </body>
 </html>
