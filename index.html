@@ -5,71 +5,107 @@
     <title>mkUltra.run gpx2vert analyser</title>
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; color: #333; }
+        body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: auto; color: #333; }
         #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; }
+        #plot-area { margin-top: 20px; width: 100%; }
         input { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box; }
-        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
-        .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
-        .stat-label { font-weight: bold; }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; text-align: center; }
         py-config { display: none !important; }
     </style>
 </head>
 <body>
     <h1>mkUltra.run gpx2vert analyser</h1>
-    <p>Upload a GPX file for impact-based elevation analysis:</p>
+    <p style="text-align: center; color: gray;">Upload a GPX file to see your distance breakdown by gradient.</p>
     <input type="file" id="file-upload" accept=".gpx">
+    
     <div id="output">Initialising mkUltra engine...</div>
+    <div id="plot-area"></div>
 
     <py-config>
-        packages = ["pandas", "gpxpy"]
+        packages = ["pandas", "gpxpy", "numpy", "matplotlib"]
     </py-config>
 
     <script type="py">
         from pyscript import display, when
         import gpxpy
         import pandas as pd
+        import numpy as np
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import LinearSegmentedColormap
+        import io
+        import re
 
-        display("✅ mkUltra engine ready.", target="output")
+        SMOOTHING_WINDOW = 10
+        display("✅ mkUltra engine ready. Select a GPX file.", target="output")
 
         @when("change", "#file-upload")
         async def process_file(event):
             file_list = event.target.files
             if not file_list: return
             
-            display("⏳ Processing vertical data...", target="output")
+            display("⏳ Analysing gradients...", target="output")
             file = file_list.item(0)
+            race_name = file.name.replace(".gpx", "")
             array_buf = await file.arrayBuffer()
             content = array_buf.to_bytes()
             
             try:
                 gpx_data = content.decode("utf-8")
                 gpx = gpxpy.parse(gpx_data)
-                track_name = gpx.tracks[0].name if gpx.tracks else "Unnamed Track"
                 
+                cumulative_dist = [0.0]
+                elevations = []
                 points = []
                 for track in gpx.tracks:
                     for segment in track.segments:
-                        for point in segment.points:
-                            points.append({'ele': point.elevation})
-                
-                df = pd.DataFrame(points)
-                
-                # Apply initial smoothing to reduce GPS noise
-                df['ele_smoothed'] = df['ele'].rolling(window=5, center=True).mean()
-                df['diff'] = df['ele_smoothed'].diff()
-                
-                gain = df[df['diff'] > 0]['diff'].sum()
-                loss = df[df['diff'] < 0]['diff'].sum()
+                        points.extend(segment.points)
 
-                html_results = f"""
-                    <div style='margin-bottom:10px;'><strong>File:</strong> {track_name}</div>
-                    <div class='stat-row'><span class='stat-label'>Total Ascent:</span> <span>{gain:.0f}m</span></div>
-                    <div class='stat-row'><span class='stat-label'>Total Descent:</span> <span>{abs(loss):.0f}m</span></div>
-                    <div style='margin-top:10px; font-size: 0.8em; color: #666;'>*Calculated using a 5-point moving average.</div>
-                """
+                for i, point in enumerate(points):
+                    elevations.append(point.elevation or 0.0)
+                    if i == 0: continue
+                    dist = points[i-1].distance_2d(point)
+                    cumulative_dist.append(cumulative_dist[-1] + dist)
+
+                df = pd.DataFrame({'cum_dist': cumulative_dist, 'ele': elevations})
+                df['ele_smooth'] = df['ele'].rolling(window=SMOOTHING_WINDOW, center=True, min_periods=1).mean()
+                df['dist_diff'] = df['cum_dist'].diff()
+                df['ele_diff'] = df['ele_smooth'].diff()
+                df['gradient'] = np.where(df['dist_diff'] > 1.0, (df['ele_diff'] / df['dist_diff']) * 100, 0)
+                df['gradient'] = df['gradient'].replace([np.inf, -np.inf], 0).fillna(0)
+
+                bins = [-np.inf, -22.5, -17.5, -12.5, -7.5, -2.5, 2.5, 7.5, 12.5, 17.5, 22.5, np.inf]
+                labels = ["-27.5 to -22.5 %", "-22.5 to -17.5 %", "-17.5 to -12.5 %", "-12.5 to -7.5 %", "-7.5 to -2.5 %", "-2.5 to 2.5 %", "2.5 to 7.5 %", "7.5 to 12.5 %", "12.5 to 17.5 %", "17.5 to 22.5 %", "22.5 to 27.5 %"]
                 
-                output_div = document.getElementById("output")
-                output_div.innerHTML = html_results
+                df['Bin'] = pd.cut(df['gradient'], bins=bins, labels=labels, right=False)
+                summary = df.groupby('Bin', observed=False)['dist_diff'].sum().reset_index()
+                summary.rename(columns={'dist_diff': 'Distance_km'}, inplace=True)
+                summary['Distance_km'] = summary['Distance_km'] / 1000.0
+                
+                total_dist = df['cum_dist'].max() / 1000.0
+                summary['Perc'] = (summary['Distance_km'] / total_dist * 100) if total_dist > 0 else 0
+                summary['sort'] = summary['Bin'].apply(lambda x: float(re.findall(r"[-+]?\d*\.?\d+", str(x))[0]))
+                summary = summary.sort_values('sort', ascending=True).reset_index(drop=True)
+
+                # Plotting
+                plt.close('all')
+                fig, ax = plt.subplots(figsize=(10, 6))
+                custom_colors = ["#803131", "#d63131", "#e77d31", "#efe331", "#d3d388", "#31d431", "#7fd1af", "#4ee6e6", "#3197e9", "#3b36db", "#682d94"]
+                cmap = LinearSegmentedColormap.from_list("vv", custom_colors[::-1], N=len(summary))
+                bars = ax.barh(summary['Bin'], summary['Distance_km'], color=[cmap(i) for i in range(len(summary))])
+
+                max_val = summary['Distance_km'].max()
+                ax.set_xlim(0, max_val * 1.3)
+                for i, bar in enumerate(bars):
+                    dist, perc = summary.loc[i, 'Distance_km'], summary.loc[i, 'Perc']
+                    if dist > 0:
+                        ax.text(bar.get_width() + (max_val * 0.02), bar.get_y() + bar.get_height()/2, f"{dist:.2f}km ({perc:.1f}%)", va='center', fontweight='bold')
+
+                plt.title(f"{race_name}\nTotal Distance: {total_dist:.2f} km", fontsize=14, fontweight='bold')
+                plt.xlabel("Distance (km)")
+                plt.tight_layout()
+                
+                display(fig, target="plot-area")
+                display(f"✅ Analysis complete for {race_name}", target="output")
                 
             except Exception as e:
                 display(f"❌ Error: {str(e)}", target="output")
